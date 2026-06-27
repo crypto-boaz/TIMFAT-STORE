@@ -14,7 +14,9 @@ import { productSlug } from "@/lib/product-slug";
 
 const STORAGE_KEY = "paytrack_kings_store_cosmetics_v3";
 const CART_STORAGE_KEY = "paytrack_kings_store_cosmetics_cart_v1";
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://paytrack-t2tp.onrender.com/api" : "http://localhost:4000/api");
+const API_URL = process.env.NODE_ENV === "production"
+  ? "/api/backend"
+  : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 const BACKEND_SYNC_TTL_MS = 30_000;
 const BACKEND_FETCH_RETRIES = 2;
 let currentData: BusinessData | null = null;

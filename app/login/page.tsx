@@ -5,7 +5,9 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase-client";
 import { ArrowLeft, BarChart3, KeyRound, Loader2, Lock, Mail, ShieldCheck, Store, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://paytrack-t2tp.onrender.com/api" : "http://localhost:4000/api");
+const API_URL = process.env.NODE_ENV === "production"
+  ? "/api/backend"
+  : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 const AUTH_FETCH_RETRIES = 2;
 
 type AuthMode = "signin" | "register" | "forgot" | "reset";
@@ -165,16 +167,20 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
+    let localLoginError = "Incorrect email or password.";
     try {
       await finishLegacySignIn();
       return;
-    } catch {
+    } catch (loginError) {
+      localLoginError = loginError instanceof Error ? loginError.message : localLoginError;
       // Existing PayTrack accounts can sign in locally. New Supabase-only accounts continue below.
     }
 
     try {
       if (!supabase) {
-        setError("Supabase is not configured yet. Add your Supabase environment keys first.");
+        setError(localLoginError === "Failed to fetch"
+          ? "Unable to reach the PayTrack server. Please try again shortly."
+          : friendlyAuthError(localLoginError));
         setLoading(false);
         return;
       }

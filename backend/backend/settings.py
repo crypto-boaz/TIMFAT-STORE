@@ -163,9 +163,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'backend.wsgi.application'
 
-DEPLOYED_FRONTEND_URL = "https://kingstore-inky.vercel.app"
+DEPLOYED_FRONTEND_URL = os.environ.get("DEPLOYED_FRONTEND_URL", "https://timfat-store-43ul.vercel.app").strip().rstrip("/")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "").strip().rstrip("/")
-VERCEL_PROJECT_DOMAIN = os.environ.get("VERCEL_PROJECT_DOMAIN", "kingstore").strip()
+VERCEL_PROJECT_DOMAIN = os.environ.get("VERCEL_PROJECT_DOMAIN", "timfat-store").strip()
 CORS_ALLOWED_ORIGINS = [
     *env_list("CORS_ALLOWED_ORIGINS", ["http://localhost:3000", "http://127.0.0.1:3000"] if DEBUG else []),
 ]
@@ -179,7 +179,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = env_list("CORS_ALLOWED_ORIGIN_REGEXES", [
 if not DEBUG:
     CORS_ALLOWED_ORIGIN_REGEXES.extend([
         rf"^https://{VERCEL_PROJECT_DOMAIN}(?:-[a-zA-Z0-9-]+)?\.vercel\.app$",
-        r"^https://kingstore-[a-zA-Z0-9-]+\.vercel\.app$",
+        r"^https://timfat-store(?:-[a-zA-Z0-9-]+)?\.vercel\.app$",
     ])
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = env_list("CSRF_TRUSTED_ORIGINS", CORS_ALLOWED_ORIGINS)

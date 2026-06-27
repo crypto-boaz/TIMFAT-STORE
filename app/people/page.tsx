@@ -6,7 +6,9 @@ import { Badge, Button, DataTable, PageHeader, Panel, StatCard } from "@/compone
 import { Notice, type NoticeState } from "@/components/notice";
 import { CheckCircle2, Edit3, Mail, Phone, Plus, Save, Search, ShieldCheck, Trash2, UserPlus, X } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://paytrack-t2tp.onrender.com/api" : "http://localhost:4000/api");
+const API_URL = process.env.NODE_ENV === "production"
+  ? "/api/backend"
+  : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
 type PeopleRole = "ADMIN" | "MANAGER" | "CASHIER" | "SALES_STAFF" | "INVENTORY_STAFF" | "STAFF" | "ACCOUNTANT" | "WAREHOUSE";
 type PeopleStatus = "ACTIVE" | "INACTIVE";
