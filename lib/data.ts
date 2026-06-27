@@ -4,6 +4,7 @@ export type Product = {
   id: string;
   serialCode: string;
   name: string;
+  slug?: string;
   description?: string;
   category: string;
   quantity: number;

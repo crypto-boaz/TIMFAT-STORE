@@ -7,6 +7,7 @@ import { Notice, type NoticeState } from "@/components/notice";
 import { ProductQr } from "@/components/product-qr";
 import {
   addToCart,
+  fetchProductHistory,
   saveProductToBackend,
   saveProductsToBackend,
   getLastBackendSyncError,
@@ -14,8 +15,12 @@ import {
   type ProductInput
 } from "@/lib/business-store";
 import { useBusinessData } from "@/lib/use-business-data";
+import { PRODUCT_CATEGORIES } from "@/lib/product-categories";
+import { generateNumericBarcode } from "@/lib/barcode";
+import { productSlug } from "@/lib/product-slug";
 import { cn, downloadCsv, money, shortDate } from "@/lib/utils";
-import { Check, Download, Edit3, Eye, FileSpreadsheet, Grid2X2, List, PackageSearch, Plus, Search, ShoppingCart, Upload, X } from "lucide-react";
+import { Check, Dices, Download, Edit3, Eye, FileSpreadsheet, Grid2X2, List, PackageSearch, Plus, Search, ShoppingCart, Upload, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import type { Product } from "@/lib/data";
 
 function priceDisplay(value: number) {
@@ -35,6 +40,7 @@ const excelColumnAliases = {
   sellingPrice: ["sellingprice", "selling price", "unitprice", "unit price", "price", "amount"],
   costPrice: ["costprice", "cost price", "buyingprice", "buying price", "purchaseprice", "purchase price"],
   category: ["category", "productcategory", "product category"],
+  slug: ["slug", "productslug", "product slug"],
   supplier: ["supplier", "suppliername", "supplier name"],
   description: ["description", "details", "note", "notes"],
   lowStockAt: ["lowstockat", "low stock at", "lowstock", "low stock", "lowstocklevel", "low stock level", "reorderlevel", "reorder level"]
@@ -83,7 +89,8 @@ function parseExcelProducts(rows: ExcelRow[], defaultCategory: string) {
     }
     products.push({
       serialCode: barcodeCell(readExcelCell(row, excelColumnAliases.barcode)),
-      name,
+      name: name.toUpperCase(),
+      slug: textCell(readExcelCell(row, excelColumnAliases.slug)),
       description: textCell(readExcelCell(row, excelColumnAliases.description)),
       category: textCell(readExcelCell(row, excelColumnAliases.category)) || defaultCategory || "General",
       quantity: numberCell(readExcelCell(row, excelColumnAliases.quantity)),
@@ -99,17 +106,19 @@ function emptyProduct(category = ""): ProductInput {
   return {
     serialCode: "",
     name: "",
+    slug: "",
     description: "",
     category,
     quantity: 0,
     unitPrice: 0,
     costPrice: 0,
     supplier: "",
-    lowStockAt: 20
+    lowStockAt: 0
   };
 }
 
 export default function InventoryPage() {
+  const router = useRouter();
   const { products, categories, cart } = useBusinessData();
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -131,8 +140,8 @@ export default function InventoryPage() {
   const filteredProducts = useMemo(() => {
     const value = query.trim().toLowerCase();
     const source = value ? products.filter((product) =>
-      [product.name, product.serialCode, product.category]
-        .some((field) => field.toLowerCase().includes(value))
+      [product.name, product.slug, product.serialCode, product.category]
+        .some((field) => (field ?? "").toLowerCase().includes(value))
     ) : products;
     return [...source].sort((a, b) => {
       const sellingPriceRank = Number(a.unitPrice <= 0) - Number(b.unitPrice <= 0);
@@ -148,12 +157,18 @@ export default function InventoryPage() {
   const outOfStock = useMemo(() => products.filter((product) => product.quantity <= 0), [products]);
   const inventoryValue = useMemo(() => products.reduce((sum, product) => sum + Math.max(0, product.quantity) * product.costPrice, 0), [products]);
   const visibleCategories = useMemo(
-    () => Array.from(new Set(["Default", ...categories, ...products.map((product) => product.category).filter(Boolean)])).sort(),
+    () => Array.from(new Set([
+      "DEFAULT",
+      ...PRODUCT_CATEGORIES,
+      ...categories,
+      ...products.map((product) => product.category).filter(Boolean)
+    ])).sort(),
     [categories, products]
   );
   const inventoryExportRows = useMemo(() => products.map((product) => ({
     barcode: product.serialCode,
     name: product.name,
+    slug: product.slug ?? "",
     category: product.category,
     quantity: product.quantity,
     sellingPrice: product.unitPrice,
@@ -173,6 +188,16 @@ export default function InventoryPage() {
   const currentStart = (Math.min(page, pageCount) - 1) * INVENTORY_PAGE_SIZE;
   const pickedProductIds = useMemo(() => new Set(cart.map((item) => item.productId)), [cart]);
 
+  const showProductDetails = (product: Product) => {
+    setSelectedProduct(product);
+    setShowForm(false);
+    void fetchProductHistory(product.id).then((transactionHistory) => {
+      setSelectedProduct((current) => current?.id === product.id
+        ? { ...current, transactionHistory }
+        : current);
+    });
+  };
+
   useEffect(() => {
     setPage(1);
   }, [query, products.length]);
@@ -187,8 +212,7 @@ export default function InventoryPage() {
     const productId = params.get("product");
     const product = productId ? products.find((item) => item.id === productId || item.serialCode === productId) : undefined;
     if (product) {
-      setSelectedProduct(product);
-      setShowForm(false);
+      showProductDetails(product);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products]);
@@ -198,8 +222,7 @@ export default function InventoryPage() {
       const productId = (event as CustomEvent<string>).detail;
       const product = products.find((item) => item.id === productId || item.serialCode === productId);
       if (!product) return;
-      setSelectedProduct(product);
-      setShowForm(false);
+      showProductDetails(product);
     };
     const openAddProduct = () => startAddProduct();
     window.addEventListener("paytrack-open-product-details", openProductDetails);
@@ -222,14 +245,12 @@ export default function InventoryPage() {
   };
 
   const startAddProduct = () => {
-    setForm(emptyProduct(lastCategory || visibleCategories[0] || "Default"));
-    setShowForm(true);
-    window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    router.push("/inventory/add");
   };
 
   function startEditProduct(product: Product) {
     rememberCategory(product.category);
-    setForm(product);
+    setForm({ ...product, slug: productSlug(product.name) });
     setShowForm(true);
     setSelectedProduct(null);
     window.setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -283,6 +304,9 @@ export default function InventoryPage() {
     if (savingProduct) return;
     setSavingProduct(true);
     try {
+      if (form.lowStockAt <= 0) {
+        throw new Error("Low stock level is required. Enter a value greater than zero.");
+      }
       const product = saveProduct(form);
       const isNewProduct = !form.id;
       const synced = await saveProductToBackend(product);
@@ -403,16 +427,6 @@ export default function InventoryPage() {
           <div><strong>{money(inventoryValue)}</strong> value</div>
         </div>
 
-        <div className="border-b border-slate-200 px-3 py-4 sm:px-5">
-          <div className="flex flex-wrap gap-2">
-            {visibleCategories.map((category) => (
-              <span key={category} className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">
-                {category}
-              </span>
-            ))}
-          </div>
-        </div>
-
         {importFileName && (
           <div className="mx-5 mt-4 border border-[#d8dee9] bg-[#f8fafc] p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -460,8 +474,7 @@ export default function InventoryPage() {
                     key={product.id}
                     type="button"
                     onClick={() => {
-                      setSelectedProduct(product);
-                      setShowForm(false);
+                      showProductDetails(product);
                       setQuery(product.name);
                     }}
                     className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm transition hover:bg-blue-50"
@@ -490,13 +503,17 @@ export default function InventoryPage() {
               </Button>
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <label className="text-sm font-bold text-slate-800">Product Name<input className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.name} onChange={(event) => updateForm("name", event.target.value)} /></label>
-              <label className="text-sm font-bold text-slate-800">Barcode<input className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.serialCode} onChange={(event) => updateForm("serialCode", event.target.value.toUpperCase())} placeholder="Scan or type barcode" /></label>
+              <label className="text-sm font-bold text-slate-800">Product Name<input className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 uppercase outline-none transition focus:border-blue-500 focus:bg-white" value={form.name} onChange={(event) => {
+                const name = event.target.value.toUpperCase();
+                setForm((current) => ({ ...current, name, slug: productSlug(name) }));
+              }} /></label>
+              <label className="text-sm font-bold text-slate-800">Barcode<span className="mt-1 flex overflow-hidden rounded-lg border border-slate-200 bg-slate-50 focus-within:border-blue-500 focus-within:bg-white"><input inputMode="numeric" maxLength={10} className="h-11 min-w-0 flex-1 bg-transparent px-3 outline-none" value={form.serialCode} onChange={(event) => updateForm("serialCode", event.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="Up to 10 digits" /><button type="button" onClick={() => updateForm("serialCode", generateNumericBarcode(products.map((product) => product.serialCode)))} className="grid w-11 place-items-center border-l border-slate-200 text-blue-600 transition hover:bg-blue-50" title="Generate a unique 10-digit barcode" aria-label="Generate barcode"><Dices size={17} /></button></span></label>
+              <label className="text-sm font-bold text-slate-800">Slug<input disabled className="mt-1 h-11 w-full cursor-not-allowed rounded-lg border border-slate-200 bg-slate-100 px-3 lowercase text-slate-500 opacity-100" value={form.slug ?? ""} placeholder="Generated from product name" /></label>
               <label className="text-sm font-bold text-slate-800">Category<select className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.category} onChange={(event) => updateForm("category", event.target.value)}><option value="">Select category</option>{visibleCategories.map((category) => <option key={category}>{category}</option>)}</select></label>
               <label className="text-sm font-bold text-slate-800">Quantity<input type="number" min={0} className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.quantity === 0 ? "" : form.quantity} onChange={(event) => updateForm("quantity", event.target.value === "" ? 0 : Number(event.target.value))} /></label>
               <label className="text-sm font-bold text-slate-800">Selling Price<input type="number" min={0} placeholder="Enter selling price" className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.unitPrice === 0 ? "" : form.unitPrice} onChange={(event) => updateForm("unitPrice", event.target.value === "" ? 0 : Number(event.target.value))} /></label>
               <label className="text-sm font-bold text-slate-800">Cost Price<input type="number" min={0} placeholder="Enter cost price" className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.costPrice === 0 ? "" : form.costPrice} onChange={(event) => updateForm("costPrice", event.target.value === "" ? 0 : Number(event.target.value))} /></label>
-              <label className="text-sm font-bold text-slate-800">Low Stock Level<input type="number" min={0} className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.lowStockAt} onChange={(event) => updateForm("lowStockAt", Number(event.target.value))} /></label>
+              <label className="text-sm font-bold text-slate-800">Low Stock Level<input type="number" min={1} placeholder="Enter low stock level" className="mt-1 h-11 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.lowStockAt === 0 ? "" : form.lowStockAt} onChange={(event) => updateForm("lowStockAt", event.target.value === "" ? 0 : Number(event.target.value))} /></label>
               <label className="text-sm font-bold text-slate-800 md:col-span-2 xl:col-span-4">Description<textarea className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 bg-slate-50 p-3 outline-none transition focus:border-blue-500 focus:bg-white" value={form.description ?? ""} onChange={(event) => updateForm("description", event.target.value)} /></label>
             </div>
             <div className="mt-5 flex flex-wrap gap-2">
@@ -533,7 +550,7 @@ export default function InventoryPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => { setSelectedProduct(product); setShowForm(false); }}
+                      onClick={() => showProductDetails(product)}
                       className="min-w-0 flex-1 text-left"
                     >
                       <span className="block break-words text-sm font-black uppercase leading-5 text-[#1f2f4a]">{product.name}</span>
@@ -563,7 +580,7 @@ export default function InventoryPage() {
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-3 gap-2">
-                    <button type="button" onClick={() => { setSelectedProduct(product); setShowForm(false); clearSearchForNextScan(); }} className="h-9 bg-[#3e87c4] text-xs font-black text-white">Details</button>
+                    <button type="button" onClick={() => { showProductDetails(product); clearSearchForNextScan(); }} className="h-9 bg-[#3e87c4] text-xs font-black text-white">Details</button>
                     <button type="button" onClick={() => startEditProduct(product)} className="h-9 border border-[#cbd5e1] bg-white text-xs font-black text-[#263653]">Edit</button>
                     <button type="button" onClick={() => pickProductForCart(product)} className="h-9 border border-[#cbd5e1] bg-white text-xs font-black text-[#263653]">
                       Cart
@@ -574,10 +591,10 @@ export default function InventoryPage() {
               })}
             </div>
             <div className="hidden overflow-x-auto px-5 pb-5 xl:block">
-              <table className="w-full min-w-[1450px] border-collapse text-left text-sm text-[#263653]">
+              <table className="w-full min-w-[1580px] border-collapse text-left text-sm text-[#263653]">
                 <thead>
                   <tr className="border-y border-[#d8dee9] bg-[#f7f9fc] text-xs font-black uppercase tracking-normal text-[#33445f]">
-                    {["", "Actions", "Code", "Name", "Category", "Cost", "Price", "Quantity", "Unit", "Price Groups", "Alert Quantity"].map((header) => (
+                    {["", "S/No", "Actions", "Code", "Name", "Slug", "Category", "Cost", "Price", "Quantity", "Unit", "Price Groups", "Alert Quantity"].map((header) => (
                       <th key={header || "select"} className={cn("px-4 py-4 align-middle", header === "" && "w-12")}>
                         <span className="flex items-center justify-between gap-2">
                           {header === "" ? (
@@ -614,6 +631,7 @@ export default function InventoryPage() {
                           <Check size={14} />
                         </button>
                       </td>
+                      <td className="px-4 py-4 font-black text-slate-500">{(currentStart + index + 1).toLocaleString()}</td>
                       <td className="px-4 py-4">
                         <select
                           className="h-6 bg-[#3e87c4] px-1 text-xs font-semibold text-white outline-none"
@@ -627,8 +645,7 @@ export default function InventoryPage() {
                               setQuery("");
                             }
                             if (action === "details") {
-                              setSelectedProduct(product);
-                              setShowForm(false);
+                              showProductDetails(product);
                               clearSearchForNextScan();
                             }
                             if (action === "cart") pickProductForCart(product);
@@ -642,10 +659,11 @@ export default function InventoryPage() {
                       </td>
                       <td className="px-4 py-4">{product.serialCode || product.id}</td>
                       <td className="max-w-[280px] px-4 py-4 uppercase">
-                        <button type="button" onClick={() => { setSelectedProduct(product); setShowForm(false); }} className="whitespace-normal text-left leading-5 hover:text-blue-700 hover:underline">
+                        <button type="button" onClick={() => showProductDetails(product)} className="whitespace-normal text-left leading-5 hover:text-blue-700 hover:underline">
                           {product.name}
                         </button>
                       </td>
+                      <td className="px-4 py-4 lowercase text-slate-500">{product.slug || "—"}</td>
                       <td className="px-4 py-4 uppercase">{product.category || "Default"}</td>
                       <td className="px-4 py-4">{money(product.costPrice)}</td>
                       <td className="px-4 py-4">{money(product.unitPrice)}</td>
@@ -711,6 +729,7 @@ export default function InventoryPage() {
                   ["Cost Price", priceDisplay(selectedProduct.costPrice)],
                   ["Stock Value", money(Math.max(0, selectedProduct.quantity) * selectedProduct.costPrice)],
                   ["Product Category", selectedProduct.category],
+                  ["Slug", selectedProduct.slug || "Not set"],
                   ["Date Added", shortDate(selectedProduct.dateAdded)],
                   ["Low Stock Level", selectedProduct.lowStockAt.toLocaleString()]
                 ].map(([label, value]) => (

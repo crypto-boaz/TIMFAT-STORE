@@ -2,13 +2,13 @@
 
 import { Button } from "@/components/ui";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase-client";
-import { ArrowLeft, BarChart3, CheckCircle2, KeyRound, Loader2, Lock, Mail, ShieldCheck, Store, User } from "lucide-react";
+import { ArrowLeft, BarChart3, KeyRound, Loader2, Lock, Mail, ShieldCheck, Store, User } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? (process.env.NODE_ENV === "production" ? "https://paytrack-t2tp.onrender.com/api" : "http://localhost:4000/api");
 const AUTH_FETCH_RETRIES = 2;
 
-type AuthMode = "signin" | "register" | "verify" | "forgot" | "reset";
+type AuthMode = "signin" | "register" | "forgot" | "reset";
 
 function wait(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -69,8 +69,6 @@ export default function LoginPage() {
   const [businessName, setBusinessName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [pendingEmail, setPendingEmail] = useState("");
-  const [otpCode, setOtpCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
@@ -212,40 +210,26 @@ export default function LoginPage() {
       setError(validationError);
       return;
     }
-    if (!supabase) {
-      setError("Supabase is not configured yet. Add your Supabase environment keys first.");
-      return;
-    }
-
     setLoading(true);
     try {
-      const origin = window.location.origin;
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          emailRedirectTo: `${origin}/login`,
-          data: {
-            business_name: businessName.trim(),
-            store_name: businessName.trim(),
-            full_name: fullName.trim(),
-            role: "OWNER"
-          }
-        }
+      const response = await authFetch(`${API_URL}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessName: businessName.trim(),
+          storeName: businessName.trim(),
+          name: fullName.trim(),
+          email: email.trim().toLowerCase(),
+          password
+        })
       });
-      if (signUpError) throw signUpError;
-      if (data.user && data.user.identities && data.user.identities.length === 0) {
-        throw new Error("Email already exists.");
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message ?? "Unable to create account.");
       }
-      setPendingEmail(email.trim().toLowerCase());
-      setOtpCode("");
-      setPassword("");
-      setConfirmPassword("");
-      setMode("verify");
-      setMessage("Your account has been created successfully. Please check your email and verify your account before logging in.");
+      finishSignIn(data.token, data.user ?? {});
     } catch (authError) {
       setError(friendlyAuthError(authError instanceof Error ? authError.message : undefined));
-    } finally {
       setLoading(false);
     }
   };
@@ -309,67 +293,11 @@ export default function LoginPage() {
     }
   };
 
-  const submitOtpVerification = async () => {
-    const address = pendingEmail || email;
-    const token = otpCode.trim().replace(/\s/g, "");
-    if (!address) {
-      setError("Email address is required.");
-      return;
-    }
-    if (!token) {
-      setError("Enter the OTP code sent to your email.");
-      return;
-    }
-    if (!supabase) {
-      setError("Supabase is not configured yet. Add your Supabase environment keys first.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data, error: verifyError } = await supabase.auth.verifyOtp({
-        email: address.trim().toLowerCase(),
-        token,
-        type: "signup"
-      });
-      if (verifyError) throw verifyError;
-      if (!data.session?.access_token) {
-        setMode("signin");
-        setMessage("Email verified successfully. You can now sign in.");
-        return;
-      }
-      await exchangeSupabaseSession(data.session.access_token);
-    } catch (authError) {
-      setError(friendlyAuthError(authError instanceof Error ? authError.message : "Invalid or expired OTP code."));
-      setLoading(false);
-    }
-  };
-
-  const resendVerification = async () => {
-    const address = pendingEmail || email;
-    if (!address || !supabase) return;
-    setLoading(true);
-    setError("");
-    try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email: address
-      });
-      if (resendError) throw resendError;
-      setMessage("Verification email sent again. Please check your inbox.");
-    } catch (authError) {
-      setError(friendlyAuthError(authError instanceof Error ? authError.message : undefined));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const submitAuth = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     resetFeedback();
     if (mode === "signin") await submitSignIn();
     if (mode === "register") await submitRegistration();
-    if (mode === "verify") await submitOtpVerification();
     if (mode === "forgot") await submitForgotPassword();
     if (mode === "reset") await submitResetPassword();
   };
@@ -377,15 +305,13 @@ export default function LoginPage() {
   const title = {
     signin: "Login",
     register: "Create Account",
-    verify: "Verify Email",
     forgot: "Forgot Password",
     reset: "Reset Password"
   }[mode];
 
   const subtitle = {
     signin: "Welcome back please login to your account",
-    register: "Enter your business details to create your workspace",
-    verify: "Your account is almost ready",
+    register: "Create your workspace instantly—no email verification required",
     forgot: "Enter your email and we will send a reset link",
     reset: "Choose a new secure password"
   }[mode];
@@ -406,7 +332,7 @@ export default function LoginPage() {
           <h1 className="text-4xl font-black tracking-normal text-white">{title}</h1>
           <p className="mt-4 text-base font-semibold text-white/82">{subtitle}</p>
 
-          {mode !== "verify" && mode !== "forgot" && mode !== "reset" && (
+          {mode !== "forgot" && mode !== "reset" && (
             <>
               <div className="mt-8 flex gap-3">
                 {["f", "G+", "in"].map((item) => (
@@ -513,33 +439,6 @@ export default function LoginPage() {
               </button>
             )}
 
-            {mode === "verify" && (
-              <>
-                <div className="rounded-3xl border border-white/35 bg-white/12 p-5 text-white shadow-inner shadow-white/5">
-                  <CheckCircle2 className="mb-4 text-emerald-200" size={34} />
-                  <p className="text-sm font-semibold leading-6">
-                    Your account has been created successfully.
-                    <br />
-                    Enter the OTP code sent to {pendingEmail || email} to verify your account.
-                  </p>
-                </div>
-
-                <label className="block text-sm font-semibold">
-                  <span className="flex h-14 items-center gap-3 rounded-2xl border border-white/48 bg-white/8 px-5 text-white shadow-inner shadow-white/5">
-                    <ShieldCheck size={18} className="text-white/76" />
-                    <input
-                      className="w-full bg-transparent text-center text-lg font-black tracking-[0.35em] text-white outline-none placeholder:text-white/72"
-                      value={otpCode}
-                      onChange={(event) => setOtpCode(event.target.value.replace(/[^\dA-Za-z]/g, "").slice(0, 8))}
-                      placeholder="OTP CODE"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                    />
-                  </span>
-                </label>
-              </>
-            )}
-
             {message && (
               <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
                 {message}
@@ -552,65 +451,36 @@ export default function LoginPage() {
               </p>
             )}
 
-            {mode !== "verify" && (
-              <Button type="submit" className="mt-7 flex h-14 w-full rounded-2xl bg-gradient-to-r from-lime-400 to-emerald-500 text-base tracking-normal shadow-xl shadow-emerald-950/20 hover:from-lime-300 hover:to-emerald-400" disabled={loading || !isSupabaseConfigured}>
-                {loading && <Loader2 className="mr-2 animate-spin" size={18} />}
-                {loading ? "Please wait..." : mode === "signin" ? "Sign In" : mode === "register" ? "Create Account" : mode === "forgot" ? "Send Reset Link" : "Update Password"}
-              </Button>
-            )}
-
-            {mode === "verify" && (
-              <div className="grid gap-3 pt-4">
-                <Button type="submit" className="h-12 rounded-2xl bg-gradient-to-r from-lime-400 to-emerald-500 text-base tracking-normal shadow-xl shadow-emerald-950/20 hover:from-lime-300 hover:to-emerald-400" disabled={loading || !isSupabaseConfigured}>
-                  {loading && <Loader2 className="mr-2 animate-spin" size={16} />}
-                  Verify OTP
-                </Button>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Button type="button" onClick={resendVerification} disabled={loading} className="h-12 rounded-2xl bg-white text-[#1f9d66] hover:bg-emerald-50">
-                    {loading && <Loader2 className="mr-2 animate-spin" size={16} />}
-                    Resend Email
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      resetFeedback();
-                      setMode("signin");
-                    }}
-                    className="h-12 rounded-2xl border border-white/40 bg-white/10 text-white hover:bg-white/18"
-                  >
-                    Back to Login
-                  </Button>
-                </div>
-              </div>
-            )}
+            <Button type="submit" className="mt-7 flex h-14 w-full rounded-2xl bg-gradient-to-r from-lime-400 to-emerald-500 text-base tracking-normal shadow-xl shadow-emerald-950/20 hover:from-lime-300 hover:to-emerald-400" disabled={loading}>
+              {loading && <Loader2 className="mr-2 animate-spin" size={18} />}
+              {loading ? "Please wait..." : mode === "signin" ? "Sign In" : mode === "register" ? "Create Account" : mode === "forgot" ? "Send Reset Link" : "Update Password"}
+            </Button>
           </form>
 
-          {mode !== "verify" && (
-            <button
-              type="button"
-              onClick={() => {
-                resetFeedback();
-                if (mode === "signin") setMode("register");
-                else setMode("signin");
-              }}
-              className="mx-auto mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-white"
-            >
-              {mode === "signin" ? "Don't have an account? Sign up" : (
-                <>
-                  <ArrowLeft size={15} /> Back to Login
-                </>
-              )}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              resetFeedback();
+              if (mode === "signin") setMode("register");
+              else setMode("signin");
+            }}
+            className="mx-auto mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-white"
+          >
+            {mode === "signin" ? "Don't have an account? Sign up" : (
+              <>
+                <ArrowLeft size={15} /> Back to Login
+              </>
+            )}
+          </button>
 
-          {!isSupabaseConfigured && (
+          {!isSupabaseConfigured && (mode === "forgot" || mode === "reset") && (
             <p className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
               Supabase keys are missing. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to enable authentication.
             </p>
           )}
 
           <p className="mt-12 flex items-center justify-center gap-2 text-center text-xs font-semibold text-white/74">
-            <KeyRound size={14} /> Secure authentication by Supabase
+            <KeyRound size={14} /> Secure authentication by PayTrack
           </p>
         </section>
       </div>

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
-    "dev:web": "next dev -p 3000",
+    "dev:web": "next dev --turbopack -p 3000",
     "dev:api": ".venv\\Scripts\\python backend\\manage.py runserver 0.0.0.0:4000",
     "django:check": ".venv\\Scripts\\python backend\\manage.py check",
     "django:migrate": ".venv\\Scripts\\python backend\\manage.py migrate",

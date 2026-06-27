@@ -10,7 +10,7 @@ from functools import wraps
 import bcrypt
 import jwt
 from django.conf import settings
-from django.contrib.auth import authenticate
+from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.core.paginator import Paginator
@@ -280,6 +280,7 @@ def product_json(product, include_relations=False):
     data = {
         "id": product.id,
         "name": product.name,
+        "slug": product.slug,
         "description": product.description,
         "sku": product.sku or "",
         "serialCode": product.serial_code or "",
@@ -513,7 +514,8 @@ def sync_business_data_to_tables(payload, store):
 
         defaults = {
             "store": store,
-            "name": item.get("name") or "Unnamed product",
+            "name": str(item.get("name") or "Unnamed product").strip().upper(),
+            "slug": str(item.get("slug") or "").strip(),
             "description": item.get("description") or None,
             "sku": serial_code,
             "serial_code": serial_code,
@@ -634,14 +636,13 @@ def sync_business_data_to_tables(payload, store):
 
 
 def business_data_from_tables(store):
-    product_queryset = Product.objects.filter(store=store).select_related("category", "supplier").prefetch_related(
-        Prefetch("stock_logs", queryset=InventoryLog.objects.order_by("-created_at"), to_attr="prefetched_stock_logs")
-    ).order_by("name")
+    product_queryset = Product.objects.filter(store=store).select_related("category", "supplier").order_by("name")
     products = [
         {
             "id": item.id,
             "serialCode": item.serial_code or "",
             "name": item.name,
+            "slug": item.slug,
             "description": item.description or "",
             "category": item.category.name if item.category_id else "Uncategorized",
             "quantity": item.quantity,
@@ -651,16 +652,7 @@ def business_data_from_tables(store):
             "dateAdded": item.created_at.date().isoformat(),
             "updatedAt": item.updated_at.date().isoformat(),
             "lowStockAt": item.low_stock_at,
-            "transactionHistory": [
-                {
-                    "id": log.id,
-                    "type": log.type,
-                    "quantity": log.quantity,
-                    "note": log.note or "",
-                    "date": log.created_at.date().isoformat(),
-                }
-                for log in getattr(item, "prefetched_stock_logs", [])
-            ],
+            "transactionHistory": [],
         }
         for item in product_queryset
     ]
@@ -780,8 +772,15 @@ def login(request):
         return json_error("Username and password are required.", status=400)
 
     django_user = authenticate(request, username=identifier, password=password)
+    if django_user is None:
+        django_email_user = get_user_model().objects.filter(email__iexact=identifier).first()
+        if django_email_user and django_email_user.check_password(password):
+            django_user = django_email_user
     if django_user and django_user.is_active and django_user.is_superuser:
-        user = app_user_from_django_superuser(django_user)
+        django_email = (django_user.email or "").strip()
+        user = User.objects.filter(email__iexact=django_email, active=True).first() if django_email else None
+        if user is None:
+            user = app_user_from_django_superuser(django_user)
         return JsonResponse({"token": sign_token(user), "user": user_response(user)})
 
     user = User.objects.filter(Q(username__iexact=identifier) | Q(email__iexact=identifier), active=True).first()
@@ -799,9 +798,9 @@ def register(request):
     if not settings.REGISTRATION_ENABLED:
         return json_error("Registration is disabled.", status=403)
     body = json_body(request)
-    username = str(body.get("username", "")).strip().lower()
     name = str(body.get("name", "")).strip()
     email = str(body.get("email", "")).strip().lower()
+    username = str(body.get("username", "")).strip().lower() or unique_username_from_email(email)
     password = str(body.get("password", ""))
     store_name = str(body.get("storeName") or body.get("businessName") or name or username).strip()
 
@@ -1059,7 +1058,8 @@ def upsert_frontend_product(body, store):
 
     defaults = {
         "store": store,
-        "name": body.get("name") or "Unnamed product",
+        "name": str(body.get("name") or "Unnamed product").strip().upper(),
+        "slug": str(body.get("slug") or "").strip(),
         "description": body.get("description") or None,
         "sku": serial_code,
         "serial_code": serial_code,
@@ -1180,7 +1180,8 @@ def products(request):
             return json_error("Supplier not found.", status=404)
     product = Product.objects.create(
         store=request.store,
-        name=body["name"],
+        name=str(body["name"]).strip().upper(),
+        slug=str(body.get("slug") or "").strip(),
         description=body.get("description"),
         sku=body.get("sku") or body.get("serialCode") or None,
         serial_code=body.get("serialCode") or None,
@@ -1208,6 +1209,7 @@ def product_detail(request, product_id):
     body = json_body(request)
     field_map = {
         "name": "name",
+        "slug": "slug",
         "description": "description",
         "sku": "sku",
         "serialCode": "serial_code",
@@ -1223,6 +1225,10 @@ def product_detail(request, product_id):
             value = body[body_key]
             if body_key in {"sku", "serialCode"} and not value:
                 value = None
+            if body_key == "name":
+                value = str(value).strip().upper()
+            if body_key == "slug":
+                value = str(value or "").strip()
             if body_key == "categoryId":
                 if not Category.objects.filter(store=request.store, id=value).exists():
                     return json_error("Category not found.", status=404)
@@ -1232,6 +1238,24 @@ def product_detail(request, product_id):
             setattr(product, model_key, value)
     product.save()
     return JsonResponse(product_json(product))
+
+
+@require_http_methods(["GET"])
+@auth_required()
+def product_history(request, product_id):
+    if not Product.objects.filter(store=request.store, id=product_id).exists():
+        return json_error("Product not found.", status=404)
+    logs = InventoryLog.objects.filter(store=request.store, product_id=product_id).order_by("-created_at")
+    return JsonResponse([
+        {
+            "id": log.id,
+            "type": log.type,
+            "quantity": log.quantity,
+            "note": log.note or "",
+            "date": log.created_at.date().isoformat(),
+        }
+        for log in logs
+    ], safe=False)
 
 
 @require_http_methods(["GET"])

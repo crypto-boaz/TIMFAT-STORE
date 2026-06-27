@@ -41,6 +41,13 @@ function moneyWithDecimals(value: number) {
   }).format(value);
 }
 
+function timeAwareGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 function DashboardTile({
   href,
   label,
@@ -89,6 +96,7 @@ function PanelHeader({ icon: Icon, title }: { icon: React.ElementType; title: st
 export default function DashboardPage() {
   const data = useBusinessData();
   const [accountName, setAccountName] = useState("PayTrack User");
+  const [greeting, setGreeting] = useState("Good morning");
   const { products, debts, expenses, suppliers, sales, categories } = data;
   const alerts = useMemo(() => buildSmartNotifications(data), [data]);
   const todayValue = today();
@@ -141,13 +149,17 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setAccountName(localStorage.getItem("paytrack_name") || "PayTrack User");
+    const updateGreeting = () => setGreeting(timeAwareGreeting());
+    updateGreeting();
+    const timer = window.setInterval(updateGreeting, 60_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   return (
     <AppShell>
       <section className="border border-[#d6dbe5] bg-[#152238] px-6 py-7 text-white shadow-md">
         <h1 className="text-[25px] font-black tracking-normal">
-          Good evening, <span className="text-blue-400">{accountName}!</span>
+          {greeting}, <span className="text-blue-400">{accountName}!</span>
         </h1>
         <p className="mt-3 text-sm font-medium text-blue-100/80">Here is a quick overview of your business today.</p>
         <p className="mt-1 text-sm font-medium text-blue-100/80">

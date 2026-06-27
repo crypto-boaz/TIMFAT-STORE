@@ -10,6 +10,7 @@ import {
   type Sale,
   type Supplier
 } from "@/lib/data";
+import { productSlug } from "@/lib/product-slug";
 
 const STORAGE_KEY = "paytrack_kings_store_cosmetics_v3";
 const CART_STORAGE_KEY = "paytrack_kings_store_cosmetics_cart_v1";
@@ -479,6 +480,7 @@ function withDerivedStatus(debt: Debt): Debt {
 function normalizeProduct(product: Product): Product {
   return {
     ...product,
+    slug: product.slug ?? "",
     costPrice: product.costPrice ?? 0,
     serialCode: product.serialCode || "",
     description: product.description ?? "",
@@ -685,6 +687,25 @@ export async function saveProductToBackend(product: Product) {
   });
 }
 
+export async function fetchProductHistory(productId: string): Promise<ProductTransaction[]> {
+  if (typeof window === "undefined") return [];
+  const token = window.localStorage.getItem("paytrack_token");
+  if (!token) return [];
+  try {
+    const response = await backendFetch(`${API_URL}/products/${encodeURIComponent(productId)}/history`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.status === 401) {
+      clearInvalidSession();
+      return [];
+    }
+    if (!response.ok) return [];
+    return await response.json() as ProductTransaction[];
+  } catch {
+    return [];
+  }
+}
+
 export type ProductBulkSyncResult = {
   ok: boolean;
   created: number;
@@ -837,6 +858,8 @@ export function saveProduct(input: ProductInput) {
       };
   const product: Product = {
     ...input,
+    name: input.name.trim().toUpperCase(),
+    slug: productSlug(input.name),
     costPrice: input.costPrice ?? 0,
     serialCode: barcode,
     id: input.id || makeId("P"),

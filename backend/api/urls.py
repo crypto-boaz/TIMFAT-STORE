@@ -16,6 +16,7 @@ urlpatterns = [
     path("products", views.products),
     path("products/sync", views.product_sync),
     path("products/bulk-sync", views.products_bulk_sync),
+    path("products/<str:product_id>/history", views.product_history),
     path("products/<str:product_id>", views.product_detail),
     path("categories", views.categories),
     path("customers", views.customers),

@@ -60,7 +60,7 @@ const topShortcuts = [
 
 const productSubNavigation = [
   { href: "/inventory", label: "List Products", icon: List },
-  { href: "/inventory?action=add", label: "Add Product", icon: Plus },
+  { href: "/inventory/add", label: "Add Product", icon: Plus },
   { href: "/inventory", label: "Edit From Details", icon: PackageSearch },
   { href: "/inventory-control", label: "Quantity Adjustments", icon: SlidersHorizontal },
   { href: "/inventory-control", label: "Stock Counts", icon: ClipboardList }
@@ -155,7 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <nav className="px-4 py-5 sm:px-7">
           {navigation.map((item) => {
-            const active = pathname === item.href;
+            const active = pathname === item.href || (item.href === "/inventory" && pathname.startsWith("/inventory/"));
             const Icon = item.icon;
             return (
               <div key={item.href}>
@@ -193,9 +193,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           key={subItem.label}
                           onClick={() => {
                             setOpen(false);
-                            if (subItem.href === "/inventory?action=add" && pathname === "/inventory") {
-                              window.dispatchEvent(new Event("paytrack-add-product"));
-                            }
                           }}
                           className="flex h-9 items-center gap-3 px-3 text-xs font-semibold text-[#9fb7d7] transition hover:bg-[#101e33] hover:text-white"
                         >
@@ -240,7 +237,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="hidden items-center gap-2 lg:flex">
               {topShortcuts.map((item) => {
                 const Icon = item.icon;
-                const active = pathname === item.href;
+                const active = pathname === item.href || (item.href === "/inventory" && pathname.startsWith("/inventory/"));
                 return (
                   <Link
                     key={item.href}

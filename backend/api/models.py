@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
 
 def cuid() -> str:
@@ -119,6 +120,7 @@ class Supplier(BaseModel):
 class Product(BaseModel):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="products", db_column="storeId", null=True, blank=True)
     name = models.CharField(max_length=255)
+    slug = models.CharField(max_length=255, blank=True, default="")
     description = models.TextField(blank=True, null=True)
     sku = models.CharField(max_length=255, blank=True, null=True)
     serial_code = models.CharField("barcode", max_length=255, blank=True, null=True, db_column="serialCode")
@@ -144,6 +146,11 @@ class Product(BaseModel):
             models.UniqueConstraint(fields=["store", "sku"], name="product_store_sku_uniq"),
             models.UniqueConstraint(fields=["store", "serial_code"], name="product_store_barcode_uniq"),
         ]
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.strip().upper()
+        self.slug = slugify(self.name)
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return self.name
