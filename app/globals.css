@@ -1,0 +1,548 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --app-bg: #f4f7fb;
+  --app-ink: #172033;
+  --surface: #ffffff;
+  --border: #dbe3ee;
+}
+
+.dark {
+  color-scheme: dark;
+  --app-bg: #0b1120;
+  --app-ink: #e5e7eb;
+  --surface: #111827;
+  --border: #243145;
+}
+
+body {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fafc 0%, var(--app-bg) 48%, #eef3f8 100%);
+  color: var(--app-ink);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.dark body {
+  background: linear-gradient(180deg, #0f172a 0%, var(--app-bg) 52%, #020617 100%);
+  color: var(--app-ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #1f9d66;
+  box-shadow: 0 0 0 4px rgba(31, 157, 102, 0.12);
+}
+
+textarea {
+  resize: vertical;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  outline-offset: 3px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(31, 157, 102, 0.35);
+}
+
+::selection {
+  background: rgba(31, 157, 102, 0.2);
+}
+
+.receipt-print {
+  width: 78mm;
+  margin: 0 auto;
+  padding: 3mm 2mm 5mm;
+  font-family: "Arial", "Helvetica Neue", Helvetica, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.32;
+}
+
+.receipt-print h1 {
+  margin: 3px 0 2px;
+  text-align: center;
+  font-size: 23px;
+  font-weight: 900;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+
+.receipt-title {
+  margin: 7px 0 5px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.receipt-center,
+.receipt-thanks {
+  text-align: center;
+}
+
+.receipt-rule,
+.receipt-line {
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.receipt-line {
+  height: 1px;
+  margin: 6px 0;
+  border-top: 1.5px dashed #000;
+}
+
+.receipt-meta,
+.receipt-totals {
+  margin-top: 6px;
+}
+
+.receipt-meta p,
+.receipt-totals p,
+.receipt-grand {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.receipt-meta strong,
+.receipt-totals strong,
+.receipt-grand strong {
+  text-align: right;
+  font-weight: 900;
+}
+
+.receipt-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5ch 10ch;
+  column-gap: 5px;
+  align-items: start;
+}
+
+.receipt-row span:first-child {
+  overflow-wrap: anywhere;
+}
+
+.receipt-row span:nth-child(2),
+.receipt-row span:nth-child(3) {
+  text-align: right;
+}
+
+.receipt-head {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.receipt-items {
+  display: grid;
+  gap: 6px;
+}
+
+.receipt-item {
+  break-inside: avoid;
+}
+
+.receipt-unit {
+  padding-left: 2px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.receipt-grand {
+  align-items: baseline;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.receipt-payment,
+.receipt-notes,
+.receipt-thanks {
+  margin-top: 7px;
+  font-weight: 900;
+}
+
+.receipt-notes {
+  white-space: pre-wrap;
+}
+
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 80mm;
+    min-height: auto;
+    background: #fff !important;
+  }
+
+  body {
+    margin: 0;
+  }
+
+  .receipt-print {
+    display: block !important;
+    color: #000 !important;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #b7c3d3;
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.login-scene {
+  background:
+    linear-gradient(90deg, rgba(2, 6, 23, 0.52), rgba(2, 6, 23, 0.36)),
+    url("/images/login-store-aisle.jpg") center center / cover no-repeat #06101d;
+}
+
+.login-motion-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("/images/login-store-aisle.jpg");
+  background-position: center center;
+  background-size: cover;
+  opacity: 1;
+  transform: scale(1.08);
+  animation: login-store-pullback 3s linear infinite;
+  will-change: transform, filter;
+}
+
+.login-store-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(2, 6, 23, 0.48) 0%, rgba(2, 6, 23, 0.22) 44%, rgba(2, 6, 23, 0.46) 100%),
+    linear-gradient(180deg, rgba(2, 6, 23, 0.12) 0%, rgba(2, 6, 23, 0.32) 100%);
+  pointer-events: none;
+}
+
+.login-visual {
+  position: relative;
+  overflow: hidden;
+}
+
+.paytrack-auth-card {
+  position: relative;
+}
+
+.login-glass-card {
+  border: 2px solid rgba(255, 255, 255, 0.52);
+  border-radius: 28px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08)),
+    rgba(15, 23, 42, 0.18);
+  padding: 44px;
+  color: white;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 28px 90px rgba(2, 6, 23, 0.42);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.login-shape {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.2);
+  animation: login-shape-float 4s ease-in-out infinite;
+}
+
+.shape-a {
+  right: -64px;
+  top: -54px;
+  width: 340px;
+  height: 210px;
+  clip-path: polygon(28% 0, 100% 8%, 82% 100%, 0 58%);
+}
+
+.shape-b {
+  bottom: 44px;
+  right: 90px;
+  width: 120px;
+  height: 100px;
+  clip-path: polygon(0 12%, 100% 0, 68% 100%);
+  animation-delay: -1.5s;
+}
+
+.shape-c {
+  left: 58px;
+  bottom: 124px;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  animation-delay: -2.4s;
+}
+
+@media (max-width: 640px) {
+  .login-glass-card {
+    border-radius: 22px;
+    padding: 28px 22px;
+  }
+}
+
+.paytrack-auth-card::after {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -18px;
+  height: 34px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(20, 122, 81, 0.38), rgba(245, 158, 11, 0.24), rgba(37, 99, 235, 0.18));
+  filter: blur(18px);
+  opacity: 0.75;
+  animation: auth-glow 3.8s ease-in-out infinite;
+  z-index: -1;
+}
+
+.login-visual::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+}
+
+.login-conveyor {
+  position: absolute;
+  left: 36px;
+  right: 36px;
+  bottom: 38px;
+  height: 36px;
+  border-radius: 8px;
+  background:
+    repeating-linear-gradient(90deg, #334155 0 26px, #475569 26px 52px);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.2);
+  animation: conveyor-shift 1.7s linear infinite;
+}
+
+.login-conveyor span {
+  position: absolute;
+  top: 13px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.login-conveyor span:nth-child(1) { left: 12%; }
+.login-conveyor span:nth-child(2) { left: 47%; }
+.login-conveyor span:nth-child(3) { left: 78%; }
+
+.login-bottle {
+  position: absolute;
+  bottom: 74px;
+  width: 92px;
+  height: 58px;
+  border: 2px solid rgba(15, 23, 42, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0 18%, transparent 18%),
+    linear-gradient(135deg, rgba(31, 157, 102, 0.9), rgba(20, 122, 81, 0.72));
+  box-shadow: 0 18px 30px rgba(15, 23, 42, 0.12);
+  animation: bottle-float 4.2s ease-in-out infinite;
+}
+
+.login-bottle::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 14px;
+  width: 22px;
+  height: 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+}
+
+.bottle-a {
+  left: 58px;
+}
+
+.bottle-b {
+  left: 198px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0 18%, transparent 18%),
+    linear-gradient(135deg, rgba(15, 23, 42, 0.88), rgba(37, 99, 235, 0.72));
+  animation-delay: -1.2s;
+}
+
+.bottle-c {
+  left: 338px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0 18%, transparent 18%),
+    linear-gradient(135deg, rgba(245, 158, 11, 0.88), rgba(180, 83, 9, 0.72));
+  animation-delay: -2.1s;
+}
+
+.login-panel {
+  position: absolute;
+  min-width: 104px;
+  border-radius: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(255, 255, 255, 0.88);
+  padding: 12px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1);
+  animation: panel-pulse 3.5s ease-in-out infinite;
+}
+
+.login-ledger-card {
+  position: absolute;
+  left: 72px;
+  top: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: rgba(15, 23, 42, 0.88);
+  color: white;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+  animation: panel-pulse 3.2s ease-in-out infinite;
+}
+
+.login-panel p {
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+}
+
+.login-panel strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.panel-a {
+  top: 34px;
+  right: 52px;
+}
+
+.panel-b {
+  top: 108px;
+  right: 118px;
+  animation-delay: -1.6s;
+}
+
+@keyframes login-store-pullback {
+  0% {
+    transform: scale(1.08) translate3d(0, 0.4%, 0);
+    filter: saturate(1.05) brightness(0.95);
+  }
+  82% {
+    transform: scale(1) translate3d(0, -0.2%, 0);
+    filter: saturate(1.12) brightness(1);
+  }
+  100% {
+    transform: scale(1.08) translate3d(0, 0.4%, 0);
+    filter: saturate(1.12) brightness(1);
+  }
+}
+
+@keyframes login-shape-float {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate3d(-14px, -12px, 0) rotate(7deg);
+    opacity: 1;
+  }
+}
+
+@keyframes conveyor-shift {
+  from { background-position: 0 0; }
+  to { background-position: 52px 0; }
+}
+
+@keyframes bottle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+
+@keyframes panel-pulse {
+  0%, 100% { transform: translateY(0); opacity: 0.9; }
+  50% { transform: translateY(-5px); opacity: 1; }
+}
+
+@keyframes auth-glow {
+  0%, 100% {
+    transform: scaleX(0.88);
+    opacity: 0.52;
+  }
+  50% {
+    transform: scaleX(1.06);
+    opacity: 0.9;
+  }
+}
+
+@keyframes loadingBar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(70%); }
+  100% { transform: translateX(220%); }
+}

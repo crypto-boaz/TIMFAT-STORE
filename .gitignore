@@ -1,0 +1,88 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+env/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+.next-dev/
+out/
+.vercel/
+next-env.d.ts
+*.tsbuildinfo
+
+# Build output
+dist/
+build/
+coverage/
+.cache/
+.turbo/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime files
+*.pid
+*.seed
+*.pid.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+
+# Django local output
+backend/db.sqlite3
+backend/staticfiles/
+backend/media/
+staticfiles/
+media/
+local_settings.py
+
+# Local databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite3-journal
+
+# Local imports, exports, and Office temp files
+*.xls
+*.xlsx
+*.doc
+*.docx
+*.csv
+~$*
+~WRL*.tmp
+*.tmp
+*_files/
+
+# Local agent/editor state
+.agents/
+.codex/
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+Thumbs.db:encryptable
+# Package manager cache
+.npm/
+.pnpm-store/

@@ -1,0 +1,46 @@
+{
+  "name": "paytrack-business-management",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
+    "dev:web": "next dev -p 3000",
+    "dev:api": ".venv\\Scripts\\python backend\\manage.py runserver 0.0.0.0:4000",
+    "django:check": ".venv\\Scripts\\python backend\\manage.py check",
+    "django:migrate": ".venv\\Scripts\\python backend\\manage.py migrate",
+    "django:makemigrations": ".venv\\Scripts\\python backend\\manage.py makemigrations",
+    "django:seed": ".venv\\Scripts\\python backend\\manage.py seed",
+    "django:bootstrap-admin": ".venv\\Scripts\\python backend\\manage.py bootstrap_admin",
+    "django:collectstatic": ".venv\\Scripts\\python backend\\manage.py collectstatic --noinput",
+    "django:check:deploy": ".venv\\Scripts\\python backend\\manage.py check --deploy",
+    "django:seed-business": ".venv\\Scripts\\python backend\\manage.py seed_business_data --replace",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
+    "@types/qrcode": "^1.5.6",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.19",
+    "qrcode": "^1.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "recharts": "2.13.3",
+    "tailwind-merge": "^2.5.5",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.16.0",
+    "eslint-config-next": "^15.5.19",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2"
+  }
+}
