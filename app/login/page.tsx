@@ -47,6 +47,15 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
+function internalUsernameFromEmail(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace("@", ".")
+    .replace(/[^a-z0-9_.-]/g, "")
+    .slice(0, 150);
+}
+
 function passwordStrengthError(value: string) {
   if (value.length < 8) return "Password must be at least 8 characters.";
   if (!/[A-Z]/.test(value)) return "Password must include at least one uppercase letter.";
@@ -222,6 +231,7 @@ export default function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          username: internalUsernameFromEmail(email),
           businessName: businessName.trim(),
           storeName: businessName.trim(),
           name: fullName.trim(),
