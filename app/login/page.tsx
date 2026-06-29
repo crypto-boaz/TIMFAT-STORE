@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui";
+import { activateBusinessWorkspace } from "@/lib/business-store";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase-client";
 import { ArrowLeft, BarChart3, KeyRound, Loader2, Lock, Mail, ShieldCheck, Store, User } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -86,7 +87,14 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const finishSignIn = (token: string, user: { name?: string; role?: string; companyName?: string; store?: { storeName?: string } }) => {
+  const finishSignIn = (token: string, user: { id?: string; email?: string; name?: string; role?: string; companyName?: string; storeId?: string; store?: { id?: string; storeName?: string } }) => {
+    const storeId = user.storeId ?? user.store?.id;
+    if (!storeId) {
+      setError("This account does not have a valid store workspace.");
+      setLoading(false);
+      return;
+    }
+    activateBusinessWorkspace(storeId);
     localStorage.setItem("paytrack_token", token);
     localStorage.setItem("paytrack_role", user.role ?? "OWNER");
     localStorage.setItem("paytrack_name", user.name ?? "PayTrack User");

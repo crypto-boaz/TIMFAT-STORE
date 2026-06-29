@@ -62,7 +62,7 @@ class Store(BaseModel):
 
 
 class User(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name="users", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.PROTECT, related_name="users", db_column="storeId")
     username = models.CharField(max_length=150, unique=True, blank=True, null=True)
     name = models.CharField(max_length=255)
     first_name = models.CharField(max_length=120, blank=True, default="", db_column="firstName")
@@ -85,7 +85,7 @@ class User(BaseModel):
 
 
 class Category(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="categories", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="categories", db_column="storeId")
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(default=timezone.now, db_column="createdAt")
 
@@ -100,7 +100,7 @@ class Category(BaseModel):
 
 
 class Supplier(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="suppliers", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="suppliers", db_column="storeId")
     name = models.CharField(max_length=255)
     contact = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -118,7 +118,7 @@ class Supplier(BaseModel):
 
 
 class Product(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="products", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="products", db_column="storeId")
     name = models.CharField(max_length=255)
     slug = models.CharField(max_length=255, blank=True, default="")
     description = models.TextField(blank=True, null=True)
@@ -157,7 +157,7 @@ class Product(BaseModel):
 
 
 class Customer(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="customers", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="customers", db_column="storeId")
     name = models.CharField(max_length=255)
     phone = models.CharField(max_length=255, blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -175,7 +175,7 @@ class Customer(BaseModel):
 
 
 class Sale(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="sales", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="sales", db_column="storeId")
     invoice_no = models.CharField(max_length=255, db_column="invoiceNo")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="sales", db_column="customerId")
     subtotal = models.DecimalField(max_digits=12, decimal_places=2)
@@ -203,7 +203,7 @@ class Sale(BaseModel):
 
 
 class SaleItem(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="sale_items", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="sale_items", db_column="storeId")
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name="items", db_column="saleId")
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="sale_items", db_column="productId")
     quantity = models.IntegerField()
@@ -220,7 +220,7 @@ class SaleItem(BaseModel):
 
 
 class Debt(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="debts", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="debts", db_column="storeId")
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="debts", db_column="customerId")
     sale = models.OneToOneField(Sale, on_delete=models.SET_NULL, blank=True, null=True, related_name="debt", db_column="saleId")
     total = models.DecimalField(max_digits=12, decimal_places=2)
@@ -242,7 +242,7 @@ class Debt(BaseModel):
 
 
 class Delivery(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="deliveries", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="deliveries", db_column="storeId")
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name="deliveries", db_column="supplierId")
     product_name = models.CharField(max_length=255, db_column="productName")
     quantity = models.IntegerField()
@@ -257,7 +257,7 @@ class Delivery(BaseModel):
 
 
 class Expense(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="expenses", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="expenses", db_column="storeId")
     category = models.CharField(max_length=255)
     description = models.TextField()
     amount = models.DecimalField(max_digits=12, decimal_places=2)
@@ -275,7 +275,7 @@ class Expense(BaseModel):
 
 
 class Payment(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="payments", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="payments", db_column="storeId")
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, blank=True, null=True, related_name="payments", db_column="customerId")
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, blank=True, null=True, related_name="payments", db_column="supplierId")
     sale = models.ForeignKey(Sale, on_delete=models.SET_NULL, blank=True, null=True, related_name="payments", db_column="saleId")
@@ -291,7 +291,7 @@ class Payment(BaseModel):
 
 
 class InventoryLog(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="inventory_logs", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="inventory_logs", db_column="storeId")
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="stock_logs", db_column="productId")
     type = models.CharField(max_length=255)
     quantity = models.IntegerField()
@@ -308,7 +308,7 @@ class InventoryLog(BaseModel):
 
 
 class Report(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="reports", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="reports", db_column="storeId")
     type = models.CharField(max_length=255)
     title = models.CharField(max_length=255)
     payload = models.JSONField()
@@ -321,7 +321,7 @@ class Report(BaseModel):
 
 
 class Notification(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="notifications", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="notifications", db_column="storeId")
     title = models.CharField(max_length=255)
     message = models.TextField()
     type = models.CharField(max_length=255)
@@ -336,7 +336,7 @@ class Notification(BaseModel):
 
 
 class CustomerRequest(BaseModel):
-    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="customer_requests", db_column="storeId", null=True, blank=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="customer_requests", db_column="storeId")
     product_name = models.CharField(max_length=255, db_column="productName")
     quantity = models.IntegerField()
     customer_name = models.CharField(max_length=255, blank=True, null=True, db_column="customerName")

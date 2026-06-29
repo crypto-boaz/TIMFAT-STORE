@@ -5,10 +5,128 @@ from django.contrib.auth.models import User as AdminUser
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 
-from .models import Category, CustomerRequest, Debt, Expense, Product, Sale, Supplier, User
+from .models import Category, CustomerRequest, Debt, Expense, Product, Sale, Store, Supplier, User
 
 
 class BusinessDataTests(TestCase):
+    @override_settings(REGISTRATION_ENABLED=True)
+    def test_public_registration_creates_isolated_empty_store_and_staff_share_owner_store(self):
+        def register(name, email):
+            response = self.client.post(
+                "/api/auth/register",
+                data=json.dumps({
+                    "businessName": f"{name} Store",
+                    "name": name,
+                    "email": email,
+                    "password": "StrongPass123!",
+                }),
+                content_type="application/json",
+            )
+            self.assertEqual(response.status_code, 201)
+            return response.json()
+
+        owner_a = register("Owner A", "owner-a@example.com")
+        owner_b = register("Owner B", "owner-b@example.com")
+        store_a = owner_a["user"]["storeId"]
+        store_b = owner_b["user"]["storeId"]
+        self.assertNotEqual(store_a, store_b)
+
+        empty_data = {
+            "products": [],
+            "categories": [],
+            "suppliers": [],
+            "expenses": [],
+            "debts": [],
+            "sales": [],
+            "cart": [],
+            "customerRequests": [],
+        }
+        response = self.client.get(
+            "/api/business-data",
+            HTTP_AUTHORIZATION=f"Bearer {owner_b['token']}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"], empty_data)
+
+        response = self.client.put(
+            "/api/business-data",
+            data=json.dumps({
+                "data": {
+                    **empty_data,
+                    "categories": ["Drinks"],
+                    "products": [{
+                        "id": "A-PRODUCT-1",
+                        "serialCode": "1000000001",
+                        "name": "Banana Juice",
+                        "category": "Drinks",
+                        "quantity": 5,
+                        "unitPrice": 1000,
+                        "costPrice": 700,
+                        "lowStockAt": 1,
+                    }],
+                    "expenses": [{
+                        "id": "A-EXPENSE-1",
+                        "category": "Transport",
+                        "description": "Delivery",
+                        "amount": 500,
+                        "date": "2026-06-28",
+                    }],
+                },
+            }),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {owner_a['token']}",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.get(
+            "/api/business-data",
+            HTTP_AUTHORIZATION=f"Bearer {owner_b['token']}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"], empty_data)
+        self.assertFalse(Product.objects.filter(store_id=store_b).exists())
+        self.assertFalse(Expense.objects.filter(store_id=store_b).exists())
+
+        response = self.client.put(
+            "/api/business-data",
+            data=json.dumps({"data": {**empty_data, "categories": ["First Category"]}}),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {owner_b['token']}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Category.objects.filter(store_id=store_b, name="First Category").exists())
+
+        response = self.client.post(
+            "/api/users",
+            data=json.dumps({
+                "firstName": "Store",
+                "lastName": "Cashier",
+                "email": "cashier-a@example.com",
+                "password": "StrongPass123!",
+                "confirmPassword": "StrongPass123!",
+                "role": "CASHIER",
+            }),
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Bearer {owner_a['token']}",
+        )
+        self.assertEqual(response.status_code, 201)
+        staff = User.objects.get(email="cashier-a@example.com")
+        self.assertEqual(staff.store_id, store_a)
+
+        response = self.client.post(
+            "/api/auth/login",
+            data=json.dumps({"email": staff.email, "password": "StrongPass123!"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200)
+        staff_token = response.json()["token"]
+        response = self.client.get(
+            "/api/business-data",
+            HTTP_AUTHORIZATION=f"Bearer {staff_token}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["products"][0]["name"], "BANANA JUICE")
+
     def test_put_saves_frontend_data_into_django_tables(self):
         register_response = self.client.post(
             "/api/auth/register",
@@ -42,7 +160,7 @@ class BusinessDataTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(Product.objects.filter(id="P-1", name="Acetone").exists())
+        self.assertTrue(Product.objects.filter(id="P-1", name="ACETONE").exists())
         self.assertEqual(Sale.objects.filter(invoice_no="INV-1").count(), 1)
         self.assertEqual(Debt.objects.filter(id="D-1").count(), 1)
         self.assertEqual(Expense.objects.filter(id="EXP-1").count(), 1)
@@ -52,7 +170,7 @@ class BusinessDataTests(TestCase):
         response = self.client.get("/api/business-data", HTTP_AUTHORIZATION=f"Bearer {token}")
         self.assertEqual(response.status_code, 200)
         data = response.json()["data"]
-        self.assertTrue(any(item["name"] == "Acetone" for item in data["products"]))
+        self.assertTrue(any(item["name"] == "ACETONE" for item in data["products"]))
         self.assertEqual(data["sales"][0]["id"], "INV-1")
     def test_product_sync_saves_single_frontend_product(self):
         register_response = self.client.post(
@@ -85,7 +203,7 @@ class BusinessDataTests(TestCase):
 
         self.assertEqual(response.status_code, 201)
         product = Product.objects.get(serial_code="SYNC-001")
-        self.assertEqual(product.name, "Church Scent")
+        self.assertEqual(product.name, "CHURCH SCENT")
         self.assertEqual(product.category.name, "Fragrance")
         self.assertEqual(product.quantity, 2)
         self.assertEqual(product.selling_price, 3000)
@@ -102,8 +220,10 @@ class BusinessDataTests(TestCase):
             content_type="application/json",
         )
         token = register_response.json()["token"]
-        category = Category.objects.create(name="Cosmetics")
+        store = User.objects.get(email="bulk.warehouse@kingsstore.local").store
+        category = Category.objects.create(store=store, name="Cosmetics")
         Product.objects.create(
+            store=store,
             id="P-existing-bulk",
             serial_code="7201924767",
             sku="7201924767",
@@ -163,8 +283,10 @@ class BusinessDataTests(TestCase):
             content_type="application/json",
         )
         token = register_response.json()["token"]
-        category = Category.objects.create(name="Cosmetics")
+        store = User.objects.get(email="warehouse@kingsstore.local").store
+        category = Category.objects.create(store=store, name="Cosmetics")
         Product.objects.create(
+            store=store,
             id="P-existing",
             serial_code="7201924767",
             sku="7201924767",
@@ -234,7 +356,9 @@ class BusinessDataTests(TestCase):
         self.assertTrue(User.objects.filter(username="owner", role="ADMIN").exists())
 
     def test_bootstrap_admin_reuses_existing_paytrack_user_by_email(self):
+        store = Store.objects.create(store_name="Existing Store")
         User.objects.create(
+            store=store,
             username="oldadmin",
             name="Old Admin",
             email="owner@kingsstore.local",

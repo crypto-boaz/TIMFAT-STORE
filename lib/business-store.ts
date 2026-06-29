@@ -11,9 +11,10 @@ import {
   type Supplier
 } from "@/lib/data";
 import { productSlug } from "@/lib/product-slug";
+import { clearActiveWorkspaceId, setActiveWorkspaceId, workspaceStorageKey } from "@/lib/workspace-storage";
 
-const STORAGE_KEY = "paytrack_kings_store_cosmetics_v3";
-const CART_STORAGE_KEY = "paytrack_kings_store_cosmetics_cart_v1";
+const STORAGE_KEY = "paytrack_business_data_v1";
+const CART_STORAGE_KEY = "paytrack_business_cart_v1";
 const API_URL = process.env.NODE_ENV === "production"
   ? "/api/backend"
   : process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
@@ -36,6 +37,7 @@ function clearInvalidSession() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem("paytrack_token");
   window.localStorage.removeItem("paytrack_role");
+  deactivateBusinessWorkspace();
   document.cookie = "paytrack_session=; path=/; max-age=0; SameSite=Lax";
   if (window.location.pathname !== "/" && window.location.pathname !== "/login") {
     window.location.href = "/";
@@ -76,14 +78,14 @@ async function backendFetch(input: RequestInfo | URL, init?: RequestInit, retrie
 function readStoredCart(): CartItem[] {
   if (typeof window === "undefined") return [];
   try {
-    const storedCart = window.localStorage.getItem(CART_STORAGE_KEY);
+    const storedCart = window.localStorage.getItem(workspaceStorageKey(CART_STORAGE_KEY));
     return storedCart ? JSON.parse(storedCart) : [];
   } catch {
     return [];
   }
 }
 
-const initialCategories: string[] = ["Default"];
+const initialCategories: string[] = [];
 const LABTRADE_CATEGORY = "General";
 
 const saltProductNames = [
@@ -535,7 +537,7 @@ export function readBusinessData(): BusinessData {
     return normalizeData();
   }
   if (!currentData) {
-    const storedData = window.localStorage.getItem(STORAGE_KEY);
+    const storedData = window.localStorage.getItem(workspaceStorageKey(STORAGE_KEY));
     if (storedData) {
       try {
         currentData = normalizeData({ ...JSON.parse(storedData), cart: readStoredCart() });
@@ -626,8 +628,8 @@ export async function syncBusinessDataFromBackend(options: { force?: boolean } =
         cart: payload.data.cart?.length ? payload.data.cart : existingCart
       });
       currentData = data;
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(data.cart));
+      window.localStorage.setItem(workspaceStorageKey(STORAGE_KEY), JSON.stringify(data));
+      window.localStorage.setItem(workspaceStorageKey(CART_STORAGE_KEY), JSON.stringify(data.cart));
       pendingBackendSync = false;
       lastBackendSyncAt = Date.now();
       window.dispatchEvent(new CustomEvent("business-data-change", { detail: data }));
@@ -788,12 +790,38 @@ export function writeBusinessData(data: BusinessData, options: { syncBackend?: b
   const shouldSyncBackend = options.syncBackend ?? true;
   const normalized = shouldSyncBackend ? normalizeData(data) : data;
   currentData = normalized;
-  window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(normalized.cart));
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  window.localStorage.setItem(workspaceStorageKey(CART_STORAGE_KEY), JSON.stringify(normalized.cart));
+  window.localStorage.setItem(workspaceStorageKey(STORAGE_KEY), JSON.stringify(normalized));
   window.dispatchEvent(new CustomEvent("business-data-change", { detail: normalized }));
   if (shouldSyncBackend) {
     scheduleBusinessDataBackendSync(normalized);
   }
+}
+
+function resetWorkspaceRuntime() {
+  if (typeof window !== "undefined" && backendPersistTimer) {
+    window.clearTimeout(backendPersistTimer);
+  }
+  currentData = null;
+  pendingBackendSync = false;
+  lastBackendSyncAt = 0;
+  backendPersistTimer = null;
+  lastBackendSyncError = "";
+  backendSyncRequest = null;
+}
+
+export function activateBusinessWorkspace(storeId: string) {
+  const normalizedStoreId = storeId.trim();
+  if (!normalizedStoreId) {
+    throw new Error("The account is missing its store workspace.");
+  }
+  resetWorkspaceRuntime();
+  setActiveWorkspaceId(normalizedStoreId);
+}
+
+export function deactivateBusinessWorkspace() {
+  resetWorkspaceRuntime();
+  clearActiveWorkspaceId();
 }
 
 export function resetInventory() {

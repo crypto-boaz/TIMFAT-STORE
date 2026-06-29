@@ -13,9 +13,10 @@ import {
   type ProductInput
 } from "@/lib/business-store";
 import { useBusinessData } from "@/lib/use-business-data";
+import { workspaceStorageKey } from "@/lib/workspace-storage";
 import type { Product } from "@/lib/data";
 import { cn, money } from "@/lib/utils";
-import { Edit3, EyeOff, Filter, PackageSearch, Save, Search, Tags, X } from "lucide-react";
+import { Edit3, EyeOff, Filter, PackageSearch, Plus, Save, Search, Tags, X } from "lucide-react";
 
 const HIDDEN_CATEGORIES_KEY = "paytrack_hidden_inventory_categories_v1";
 
@@ -66,7 +67,7 @@ function statusLabel(product: Product) {
 function readHiddenCategories() {
   if (typeof window === "undefined") return [];
   try {
-    const value = window.localStorage.getItem(HIDDEN_CATEGORIES_KEY);
+    const value = window.localStorage.getItem(workspaceStorageKey(HIDDEN_CATEGORIES_KEY));
     return value ? JSON.parse(value) as string[] : [];
   } catch {
     return [];
@@ -115,7 +116,7 @@ export default function InventoryControlPage() {
 
   const persistHiddenCategories = (next: string[]) => {
     setHiddenCategories(next);
-    window.localStorage.setItem(HIDDEN_CATEGORIES_KEY, JSON.stringify(next));
+    window.localStorage.setItem(workspaceStorageKey(HIDDEN_CATEGORIES_KEY), JSON.stringify(next));
   };
 
   const toggleCategoryHidden = (category: string) => {
@@ -131,16 +132,21 @@ export default function InventoryControlPage() {
     setCategoryName(category);
   };
 
-  const handleRenameCategory = () => {
+  const handleSaveCategory = () => {
     try {
-      const saved = saveCategory(categoryName, editingCategory);
-      const nextHidden = hiddenCategories.map((category) => category === editingCategory ? saved : category);
-      persistHiddenCategories(nextHidden);
-      setNotice({ type: "success", message: `${editingCategory} renamed to ${saved}.` });
+      const saved = saveCategory(categoryName, editingCategory || undefined);
+      if (editingCategory) {
+        const nextHidden = hiddenCategories.map((category) => category === editingCategory ? saved : category);
+        persistHiddenCategories(nextHidden);
+      }
+      setNotice({
+        type: "success",
+        message: editingCategory ? `${editingCategory} renamed to ${saved}.` : `${saved} category created.`,
+      });
       setEditingCategory("");
       setCategoryName("");
     } catch (error) {
-      setNotice({ type: "error", message: error instanceof Error ? error.message : "Unable to rename category." });
+      setNotice({ type: "error", message: error instanceof Error ? error.message : "Unable to save category." });
     }
   };
 
@@ -309,9 +315,12 @@ export default function InventoryControlPage() {
               value={categoryName}
               onChange={(event) => setCategoryName(event.target.value)}
               className="h-11 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-600/10 dark:border-slate-700 dark:bg-slate-950"
-              placeholder={editingCategory ? `Rename ${editingCategory}` : "Select a category to rename"}
+              placeholder={editingCategory ? `Rename ${editingCategory}` : "Enter a new category name"}
             />
-            <Button onClick={handleRenameCategory} disabled={!editingCategory}><Save size={16} /> Rename Category</Button>
+            <Button onClick={handleSaveCategory} disabled={!categoryName.trim()}>
+              {editingCategory ? <Save size={16} /> : <Plus size={16} />}
+              {editingCategory ? "Rename Category" : "Add Category"}
+            </Button>
           </div>
 
           <div className="mt-5 max-h-[70vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
@@ -324,6 +333,13 @@ export default function InventoryControlPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {categoryStats.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-10 text-center text-sm font-semibold text-slate-500">
+                      No categories yet. Enter a category name above to create the first one.
+                    </td>
+                  </tr>
+                )}
                 {categoryStats.map((category) => (
                   <tr key={category.name} className="bg-white odd:bg-slate-50/70 dark:bg-slate-900 dark:odd:bg-slate-950/50">
                     <td className="px-4 py-3 font-black text-slate-900 dark:text-white">{category.name}</td>

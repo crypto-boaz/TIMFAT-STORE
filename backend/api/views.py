@@ -477,6 +477,9 @@ def sync_business_data_to_tables(payload, store):
             customers[name], _ = Customer.objects.get_or_create(store=store, name=name)
         return customers[name]
 
+    for name in payload.get("categories", []):
+        category_for(name)
+
     for item in payload.get("suppliers", []):
         supplier = supplier_for(
             item.get("name"),

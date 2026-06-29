@@ -32,6 +32,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useBusinessData } from "@/lib/use-business-data";
+import { deactivateBusinessWorkspace } from "@/lib/business-store";
 import { buildSmartNotifications, isSmartNotificationRead } from "@/lib/notifications";
 import { supabase } from "@/lib/supabase-client";
 
@@ -127,6 +128,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("paytrack_token");
     localStorage.removeItem("paytrack_role");
     localStorage.removeItem("paytrack_name");
+    localStorage.removeItem("paytrack_company");
+    deactivateBusinessWorkspace();
     document.cookie = "paytrack_session=; path=/; max-age=0; SameSite=Lax";
     router.replace("/");
     router.refresh();

@@ -1,4 +1,5 @@
 import type { BusinessData } from "@/lib/business-store";
+import { workspaceStorageKey } from "@/lib/workspace-storage";
 
 export type SmartNotification = {
   id: string;
@@ -23,7 +24,7 @@ function today() {
 function readNotificationIds() {
   if (typeof window === "undefined") return new Set<string>();
   try {
-    return new Set(JSON.parse(window.localStorage.getItem(READ_NOTIFICATIONS_KEY) ?? "[]") as string[]);
+    return new Set(JSON.parse(window.localStorage.getItem(workspaceStorageKey(READ_NOTIFICATIONS_KEY)) ?? "[]") as string[]);
   } catch {
     return new Set<string>();
   }
@@ -37,7 +38,7 @@ export function markSmartNotificationsRead(ids: string[]) {
   if (typeof window === "undefined") return;
   const readIds = readNotificationIds();
   ids.forEach((id) => readIds.add(id));
-  window.localStorage.setItem(READ_NOTIFICATIONS_KEY, JSON.stringify([...readIds]));
+  window.localStorage.setItem(workspaceStorageKey(READ_NOTIFICATIONS_KEY), JSON.stringify([...readIds]));
   window.dispatchEvent(new CustomEvent("smart-notifications-read"));
 }
 
